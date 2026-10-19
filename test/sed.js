@@ -190,3 +190,70 @@ test('empty file', t => {
   t.is(result.code, 0);
   t.is(result.toString(), '');
 });
+
+test('does not replace a synthetic line after a trailing newline', t => {
+  const result = shell.sed(/^/, '>', `${t.context.tmp}/file1.txt`);
+  t.is(result.code, 0);
+  t.is(result.toString(), '>test1\n');
+});
+
+test('does not replace a synthetic line in piped input', t => {
+  const result = shell.ShellString('first\nlast\n').sed(/$/, '!');
+  t.is(result.code, 0);
+  t.is(result.toString(), 'first!\nlast!\n');
+});
+
+test('still replaces real blank lines', t => {
+  const result = shell.ShellString('\nfirst\n\n').sed(/^$/, 'blank');
+  t.is(result.code, 0);
+  t.is(result.toString(), 'blank\nfirst\nblank\n');
+});
+
+test('preserves an unterminated final line', t => {
+  const result = shell.ShellString('first\nlast').sed(/$/, '!');
+  t.is(result.code, 0);
+  t.is(result.toString(), 'first!\nlast!');
+});
+
+test('does not call the replacement function for an empty file', t => {
+  let calls = 0;
+  const result = shell.sed(/^/, () => {
+    calls += 1;
+    return 'replacement';
+  }, 'test/resources/sed/empty.txt');
+  t.is(result.code, 0);
+  t.is(result.toString(), '');
+  t.is(calls, 0);
+});
+
+test('calls the replacement function only for actual input lines', t => {
+  let calls = 0;
+  const result = shell.ShellString('first\n\n').sed(/^/, () => {
+    calls += 1;
+    return '>';
+  });
+  t.is(result.code, 0);
+  t.is(result.toString(), '>first\n>\n');
+  t.is(calls, 2);
+});
+
+test('in-place replacement preserves the trailing newline', t => {
+  const file = `${t.context.tmp}/file1.txt`;
+  const result = shell.sed('-i', /^/, '>', file);
+  t.is(result.code, 0);
+  t.is(fs.readFileSync(file, 'utf8'), '>test1\n');
+});
+
+test('empty file stays empty after in-place replacement', t => {
+  const file = `${t.context.tmp}/sed/empty.txt`;
+  const result = shell.sed('-i', /^$/, 'replacement', file);
+  t.is(result.code, 0);
+  t.is(fs.readFileSync(file, 'utf8'), '');
+});
+
+test('multiple files do not replace synthetic trailing lines', t => {
+  const result = shell.sed(/^/, '>', `${t.context.tmp}/file1.txt`,
+    `${t.context.tmp}/file2.txt`);
+  t.is(result.code, 0);
+  t.is(result.toString(), '>test1\n>test2\n');
+});

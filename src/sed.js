@@ -75,7 +75,12 @@ function _sed(options, regex, replacement, files) {
 
     var contents = file === '-' ? pipe : fs.readFileSync(file, 'utf8');
     var lines = contents.split('\n');
-    var result = lines.map(function (line) {
+    var result = lines.map(function (line, index) {
+      // A final empty split element is not an input line. Keep it only to
+      // preserve the trailing newline (or the empty file).
+      if (index === lines.length - 1 && line === '') {
+        return '';
+      }
       return line.replace(regex, replacement);
     }).join('\n');
 
